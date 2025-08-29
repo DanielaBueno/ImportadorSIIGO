@@ -79,9 +79,15 @@ def ejecutar():
 
         # Cargar Reporte 1
         def cargar_hoja_con_columnas(archivo, columnas_esperadas):
-            xls = pd.ExcelFile(archivo)
+            
+            # Detectar motor según extensión
+            if archivo.lower().endswith(".xls"):
+                xls = pd.ExcelFile(archivo, engine="xlrd")      # Para .xls (antiguo)
+            else:
+                xls = pd.ExcelFile(archivo, engine="openpyxl")  # Para .xlsx (nuevo)
+
             for nombre_hoja in xls.sheet_names:
-                df = pd.read_excel(xls, sheet_name=nombre_hoja)
+                df = pd.read_excel(xls, sheet_name=nombre_hoja, engine='openpyxl' if archivo.endswith('.xlsx') else 'xlrd')
                 if all(col in df.columns for col in columnas_esperadas):
                     return df
             columnas_encontradas = df.columns.tolist()
@@ -116,11 +122,14 @@ def ejecutar():
 
         print(r2.columns)
 
-        #Filtar por usuario
+        # Filtro por usuario
         usuario_filtro = usuario_entry.get().strip()
         if usuario_filtro:
-            r2 = r2[r2["usuario"].str.contains(usuario_filtro, case=False, na=False)]
-            logging.info("Filtrado por usuario: %s", usuario_filtro)
+            if "usuario" in r2.columns:
+                r2 = r2[r2["usuario"].str.contains(usuario_filtro, case=False, na=False)]
+                logging.info("Filtrado por usuario: %s (Registros después del filtro: %d)", usuario_filtro, len(r2))
+            else:
+                logging.warning("Se intentó filtrar por usuario, pero la columna 'usuario' no existe en el Reporte 2.")
 
 
         # Renombrar columnas de Reporte 2
