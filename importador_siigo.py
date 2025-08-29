@@ -9,10 +9,8 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 from datetime import datetime
 import logging
 
-# Siempre usar la carpeta donde está el ejecutable/script como base
-os.chdir(os.path.dirname(sys.executable if getattr(sys, 'frozen', False) else __file__))
-
 # Configuración de logging
+os.chdir(os.path.dirname(sys.executable if getattr(sys, 'frozen', False) else __file__))
 log_path = os.path.join(os.getcwd(), "siigo_log.txt")
 logging.basicConfig(
     filename=log_path,
@@ -20,279 +18,501 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-# Obtener la ruta al archivo plantilla incluido con el ejecutable
 def obtener_ruta_recurso(nombre_archivo):
     if hasattr(sys, '_MEIPASS'):
-        return os.path.join(sys._MEIPASS, nombre_archivo)  # Para PyInstaller
+        return os.path.join(sys._MEIPASS, nombre_archivo)
     return os.path.join(os.path.abspath("."), nombre_archivo)
 
+# Variables globales
 archivo1 = ""
 archivo2 = ""
 plantilla = obtener_ruta_recurso("plantilla_siigo.xlsx")
 
-# Crear ventana principal
-ventana = tk.Tk()
-ventana.title("Herramienta de Importación SIIGO")
-ventana.geometry("450x500")
-# Establecer ícono de ventana
-try:
-    ventana.iconbitmap(obtener_ruta_recurso("icono.ico"))
-except FileNotFoundError:
-    logging.warning("No se pudo cargar el icono")
-    pass  # No se encontró ícono, continuar sin él
-
-def seleccionar_archivo(tipo):
-    global archivo1, archivo2, plantilla
-    ruta = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx;*.xls")])
-    if tipo == "r1":
-        archivo1 = ruta
-        print("📄 Archivo 1 seleccionado:", archivo1)
-        lbl_r1.config(text="✔ Reporte 1 cargado")
-        logging.info("Reporte 1 cargado: %s", archivo1)
-    elif tipo == "r2":
-        archivo2 = ruta
-        print("📄 Archivo 2 seleccionado:", archivo2)
-        lbl_r2.config(text="✔ Reporte 2 cargado")
-        logging.info("Reporte 2 cargado: %s", archivo2)
-
-
-def ejecutar():
-    try:
-        if not archivo1 or not archivo2 or not plantilla:
-            messagebox.showerror("Error", "Debes cargar todos los archivos.")
-            logging.error("Faltan archivos por cargar.")
-            return
+class ModernSiigoApp:
+    def __init__(self, root):
+        self.root = root
+        self.setup_window()
+        self.setup_style()
+        self.create_widgets()
         
-        if not os.path.exists(archivo1):
-            raise FileNotFoundError(f"El archivo Reporte 1 no fue encontrado: {archivo1}")
-        if not os.path.exists(archivo2):
-            raise FileNotFoundError(f"El archivo Reporte 2 no fue encontrado: {archivo2}")
+    def setup_window(self):
+        """Configurar la ventana principal"""
+        self.root.title("🚀 Herramienta de Importación SIIGO")
+        self.root.geometry("600x700")
+        self.root.configure(bg='#f0f0f0')
+        
+        # Centrar ventana
+        self.center_window()
+        
+        # Intentar cargar ícono
+        try:
+            self.root.iconbitmap(obtener_ruta_recurso("icono.ico"))
+        except:
+            pass
 
-        # Cargar Reporte 1
-        def cargar_hoja_con_columnas(archivo, columnas_esperadas):
-            try:
-                # Detectar motor según extensión
-                if archivo.lower().endswith(".xls"):
-                    with open(archivo, "rb") as f:
-                        inicio = f.read(1024)
-                    if b"<table" in inicio.lower():  # 👈 Es un HTML disfrazado de .xls
-                        df_list = pd.read_html(archivo)  # Devuelve lista de tablas
-                        for df in df_list:
-                            if all(col in df.columns for col in columnas_esperadas):
-                                return df
-                        raise ValueError(f"No se encontró una tabla con las columnas requeridas en {archivo}.")
+    def center_window(self):
+        """Centrar la ventana en la pantalla"""
+        self.root.update_idletasks()
+        width = self.root.winfo_width()
+        height = self.root.winfo_height()
+        pos_x = (self.root.winfo_screenwidth() // 2) - (width // 2)
+        pos_y = (self.root.winfo_screenheight() // 2) - (height // 2)
+        self.root.geometry(f'{width}x{height}+{pos_x}+{pos_y}')
+
+    def setup_style(self):
+        """Configurar estilos personalizados"""
+        self.style = ttk.Style()
+        
+        # Configurar tema
+        self.style.theme_use('clam')
+        
+        # Colores personalizados
+        self.colors = {
+            'primary': '#2E86C1',
+            'secondary': '#48C9B0',
+            'success': '#58D68D',
+            'danger': '#EC7063',
+            'warning': '#F7DC6F',
+            'light': '#F8F9FA',
+            'dark': '#2C3E50',
+            'white': '#FFFFFF'
+        }
+        
+        # Estilos para botones
+        self.style.configure('Primary.TButton',
+                           background=self.colors['primary'],
+                           foreground='white',
+                           font=('Arial', 10, 'bold'),
+                           relief='flat',
+                           padding=(20, 10))
+        
+        self.style.configure('Success.TButton',
+                           background=self.colors['success'],
+                           foreground='white',
+                           font=('Arial', 12, 'bold'),
+                           relief='flat',
+                           padding=(30, 15))
+        
+        self.style.configure('File.TButton',
+                           background=self.colors['secondary'],
+                           foreground='white',
+                           font=('Arial', 10),
+                           relief='flat',
+                           padding=(15, 8))
+        
+        # Efectos hover
+        self.style.map('Primary.TButton',
+                      background=[('active', '#1B4F72')])
+        self.style.map('Success.TButton',
+                      background=[('active', '#27AE60')])
+        self.style.map('File.TButton',
+                      background=[('active', '#138D75')])
+
+    def create_widgets(self):
+        """Crear todos los widgets de la interfaz"""
+        # Frame principal con padding
+        main_frame = tk.Frame(self.root, bg='#f0f0f0', padx=40, pady=30)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Header
+        self.create_header(main_frame)
+        
+        # Separador
+        separator1 = ttk.Separator(main_frame, orient='horizontal')
+        separator1.pack(fill=tk.X, pady=(20, 30))
+        
+        # Sección de archivos
+        self.create_file_section(main_frame)
+        
+        # Separador
+        separator2 = ttk.Separator(main_frame, orient='horizontal')
+        separator2.pack(fill=tk.X, pady=(30, 20))
+        
+        # Sección de configuración
+        self.create_config_section(main_frame)
+        
+        # Separador
+        separator3 = ttk.Separator(main_frame, orient='horizontal')
+        separator3.pack(fill=tk.X, pady=(20, 30))
+        
+        # Botón ejecutar
+        self.create_execute_section(main_frame)
+        
+        # Footer
+        self.create_footer(main_frame)
+
+    def create_header(self, parent):
+        """Crear el header de la aplicación"""
+        header_frame = tk.Frame(parent, bg='#f0f0f0')
+        header_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        # Título principal
+        title_label = tk.Label(header_frame,
+                              text="Herramienta de Importación SIIGO",
+                              font=('Arial', 18, 'bold'),
+                              fg=self.colors['dark'],
+                              bg='#f0f0f0')
+        title_label.pack()
+        
+        # Subtítulo
+        subtitle_label = tk.Label(header_frame,
+                                 text="Procesa y combina reportes para importar a SIIGO",
+                                 font=('Arial', 10),
+                                 fg='#666666',
+                                 bg='#f0f0f0')
+        subtitle_label.pack(pady=(5, 0))
+
+    def create_file_section(self, parent):
+        """Crear la sección de selección de archivos"""
+        files_frame = tk.LabelFrame(parent,
+                                   text=" 📁 Selección de Archivos ",
+                                   font=('Arial', 12, 'bold'),
+                                   fg=self.colors['dark'],
+                                   bg='#f0f0f0',
+                                   padx=20,
+                                   pady=15)
+        files_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        # Reporte 1
+        r1_frame = tk.Frame(files_frame, bg='#f0f0f0')
+        r1_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        r1_btn = ttk.Button(r1_frame,
+                           text="📊 Cargar Reporte 1 (Productos)",
+                           style='File.TButton',
+                           command=lambda: self.seleccionar_archivo("r1"))
+        r1_btn.pack(side=tk.LEFT)
+        
+        self.lbl_r1 = tk.Label(r1_frame,
+                              text="⏳ Esperando archivo...",
+                              font=('Arial', 9),
+                              fg='#666666',
+                              bg='#f0f0f0')
+        self.lbl_r1.pack(side=tk.LEFT, padx=(15, 0))
+        
+        # Reporte 2
+        r2_frame = tk.Frame(files_frame, bg='#f0f0f0')
+        r2_frame.pack(fill=tk.X)
+        
+        r2_btn = ttk.Button(r2_frame,
+                           text="📋 Cargar Reporte 2 (Facturas)",
+                           style='File.TButton',
+                           command=lambda: self.seleccionar_archivo("r2"))
+        r2_btn.pack(side=tk.LEFT)
+        
+        self.lbl_r2 = tk.Label(r2_frame,
+                              text="⏳ Esperando archivo...",
+                              font=('Arial', 9),
+                              fg='#666666',
+                              bg='#f0f0f0')
+        self.lbl_r2.pack(side=tk.LEFT, padx=(15, 0))
+
+    def create_config_section(self, parent):
+        """Crear la sección de configuración"""
+        config_frame = tk.LabelFrame(parent,
+                                    text=" ⚙️ Configuración ",
+                                    font=('Arial', 12, 'bold'),
+                                    fg=self.colors['dark'],
+                                    bg='#f0f0f0',
+                                    padx=20,
+                                    pady=15)
+        config_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        # Filtro por usuario
+        user_frame = tk.Frame(config_frame, bg='#f0f0f0')
+        user_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        user_label = tk.Label(user_frame,
+                             text="👤 Filtrar por usuario:",
+                             font=('Arial', 10, 'bold'),
+                             fg=self.colors['dark'],
+                             bg='#f0f0f0')
+        user_label.pack(anchor=tk.W)
+        
+        self.usuario_entry = tk.Entry(user_frame,
+                                     font=('Arial', 10),
+                                     relief='solid',
+                                     bd=1,
+                                     bg=self.colors['white'],
+                                     width=30)
+        self.usuario_entry.pack(anchor=tk.W, pady=(5, 0))
+        
+        # Checkbox fecha vencimiento
+        self.var_fecha_vencimiento = tk.BooleanVar()
+        fecha_check = tk.Checkbutton(config_frame,
+                                    text="📅 Copiar Fecha de elaboración a Fecha Vencimiento",
+                                    variable=self.var_fecha_vencimiento,
+                                    font=('Arial', 10),
+                                    fg=self.colors['dark'],
+                                    bg='#f0f0f0',
+                                    activebackground='#f0f0f0',
+                                    activeforeground=self.colors['primary'])
+        fecha_check.pack(anchor=tk.W)
+
+    def create_execute_section(self, parent):
+        """Crear la sección del botón ejecutar"""
+        execute_frame = tk.Frame(parent, bg='#f0f0f0')
+        execute_frame.pack(fill=tk.X, pady=20)
+        
+        execute_btn = ttk.Button(execute_frame,
+                               text="🚀 EJECUTAR PROCESO",
+                               style='Success.TButton',
+                               command=self.ejecutar)
+        execute_btn.pack(anchor=tk.CENTER)
+        
+        # Barra de progreso (inicialmente oculta)
+        self.progress = ttk.Progressbar(execute_frame,
+                                       mode='indeterminate',
+                                       length=400)
+        
+        self.status_label = tk.Label(execute_frame,
+                                   text="",
+                                   font=('Arial', 9),
+                                   fg=self.colors['primary'],
+                                   bg='#f0f0f0')
+
+    def create_footer(self, parent):
+        """Crear el footer de la aplicación"""
+        footer_frame = tk.Frame(parent, bg='#f0f0f0')
+        footer_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(30, 0))
+        
+        footer_label = tk.Label(footer_frame,
+                               text="💡 Tip: Revisa los logs en siigo_log.txt para más detalles",
+                               font=('Arial', 8),
+                               fg='#888888',
+                               bg='#f0f0f0')
+        footer_label.pack()
+
+    def seleccionar_archivo(self, tipo):
+        """Seleccionar archivos con mejor feedback visual"""
+        global archivo1, archivo2
+        
+        tipos_archivo = [("Excel files", "*.xlsx"), ("Excel files", "*.xls")]
+        ruta = filedialog.askopenfilename(
+            title=f"Seleccionar {'Reporte de Productos' if tipo == 'r1' else 'Reporte de Facturas'}",
+            filetypes=tipos_archivo
+        )
+        
+        if ruta:
+            if tipo == "r1":
+                archivo1 = ruta
+                self.lbl_r1.config(text="✅ Archivo cargado correctamente",
+                                  fg=self.colors['success'])
+                logging.info("Reporte 1 cargado: %s", archivo1)
+            elif tipo == "r2":
+                archivo2 = ruta
+                self.lbl_r2.config(text="✅ Archivo cargado correctamente",
+                                  fg=self.colors['success'])
+                logging.info("Reporte 2 cargado: %s", archivo2)
+
+    def show_progress(self, message):
+        """Mostrar barra de progreso y mensaje de estado"""
+        self.progress.pack(pady=(10, 5))
+        self.progress.start(10)
+        self.status_label.config(text=message)
+        self.status_label.pack(pady=(5, 0))
+        self.root.update()
+
+    def hide_progress(self):
+        """Ocultar barra de progreso"""
+        self.progress.stop()
+        self.progress.pack_forget()
+        self.status_label.pack_forget()
+        self.root.update()
+
+    def ejecutar(self):
+        """Ejecutar el proceso principal con mejor UX"""
+        try:
+            # Validaciones iniciales
+            if not archivo1 or not archivo2 or not plantilla:
+                messagebox.showerror("❌ Error", "Debes cargar todos los archivos requeridos.")
+                logging.error("Faltan archivos por cargar.")
+                return
+            
+            if not os.path.exists(archivo1):
+                raise FileNotFoundError(f"El archivo Reporte 1 no fue encontrado: {archivo1}")
+            if not os.path.exists(archivo2):
+                raise FileNotFoundError(f"El archivo Reporte 2 no fue encontrado: {archivo2}")
+
+            # Mostrar progreso
+            self.show_progress("🔄 Iniciando procesamiento...")
+
+            # Función para cargar hojas con columnas específicas
+            def cargar_hoja_con_columnas(archivo, columnas_esperadas):
+                try:
+                    if archivo.lower().endswith(".xls"):
+                        with open(archivo, "rb") as f:
+                            inicio = f.read(1024)
+                        if b"<table" in inicio.lower():
+                            df_list = pd.read_html(archivo)
+                            for df in df_list:
+                                if all(col in df.columns for col in columnas_esperadas):
+                                    return df
+                            raise ValueError(f"No se encontró una tabla con las columnas requeridas en {archivo}.")
+                        else:
+                            xls = pd.ExcelFile(archivo, engine="xlrd")
                     else:
-                        xls = pd.ExcelFile(archivo, engine="xlrd")
-                else:
-                    xls = pd.ExcelFile(archivo, engine="openpyxl")
+                        xls = pd.ExcelFile(archivo, engine="openpyxl")
 
-                for nombre_hoja in xls.sheet_names:
-                    df = pd.read_excel(xls, sheet_name=nombre_hoja, engine='openpyxl' if archivo.endswith('.xlsx') else 'xlrd')
-                    if all(col in df.columns for col in columnas_esperadas):
-                        return df
+                    for nombre_hoja in xls.sheet_names:
+                        df = pd.read_excel(xls, sheet_name=nombre_hoja, 
+                                         engine='openpyxl' if archivo.endswith('.xlsx') else 'xlrd')
+                        if all(col in df.columns for col in columnas_esperadas):
+                            return df
                     
-                columnas_encontradas = df.columns.tolist()
-                columnas_faltantes = [col for col in columnas_esperadas if col not in columnas_encontradas]
+                    raise ValueError(f"No se encontró una hoja con las columnas requeridas en {archivo}.")
+                except Exception as e:
+                    logging.error("Error cargando hoja desde %s: %s", archivo, e)
+                    raise
 
-                raise ValueError(f"No se encontró una hoja con las columnas requeridas en {archivo}.")
-            except Exception as e:
-                logging.error("Error cargando hoja desde %s: %s", archivo, e)
-                raise
+            # Cargar Reporte 1
+            self.show_progress("📊 Cargando Reporte 1...")
+            columnas_r1 = ["factura", "codigo", "referencia", "cantidad", "valor_total"]
+            r1 = cargar_hoja_con_columnas(archivo1, columnas_r1)
+            logging.info("Reporte 1 cargado con %d registros.", len(r1))
 
-        # Cargar Reporte 1 sin importar el nombre de la hoja
-        columnas_r1 = ["factura", "codigo", "referencia", "cantidad", "valor_total"]
-        r1 = cargar_hoja_con_columnas(archivo1, columnas_r1)
-        logging.info("Reporte 1 cargado con %d registros.", len(r1))
+            # Procesar Reporte 1
+            self.show_progress("🔧 Procesando Reporte 1...")
+            r1 = r1[r1["valor_total"] != 0]
+            r1["Valor unitario"] = r1["valor_total"] / r1["cantidad"]
+            r1 = r1.rename(columns={
+                "factura": "Consecutivo",
+                "codigo": "Código producto",
+                "referencia": "Descripción producto",
+                "cantidad": "Cantidad producto"
+            })
+            r1 = r1[["Consecutivo", "Código producto", "Descripción producto", "Cantidad producto", "Valor unitario"]]
+            r1["Consecutivo"] = r1["Consecutivo"].astype(str)
 
-        # Filtrar filas donde 'valor_total' es 0
-        r1 = r1[r1["valor_total"] != 0]
-        logging.info("Reporte 1 después de filtrar valor_total=0: %d registros.", len(r1))
+            # Cargar Reporte 2
+            self.show_progress("📋 Cargando Reporte 2...")
+            columnas_r2 = ["NitEmpresa", "f_fact", "numero", "total"]
+            r2 = cargar_hoja_con_columnas(archivo2, columnas_r2)
+            logging.info("Reporte 2 cargado con %d registros.", len(r2))
 
-        # Agregar la columna 'Valor unitario' calculando la división de 'valor_total' por 'cantidad'
-        r1["Valor unitario"] = r1["valor_total"] / r1["cantidad"]
+            # Filtrar por usuario si se especifica
+            usuario_filtro = self.usuario_entry.get().strip()
+            if usuario_filtro:
+                self.show_progress(f"👤 Filtrando por usuario: {usuario_filtro}")
+                if "usuario" in r2.columns:
+                    r2_original_count = len(r2)
+                    r2 = r2[r2["usuario"].str.contains(usuario_filtro, case=False, na=False)]
+                    logging.info("Filtrado por usuario: %s (De %d a %d registros)", 
+                               usuario_filtro, r2_original_count, len(r2))
+                else:
+                    logging.warning("Columna 'usuario' no encontrada en el Reporte 2.")
 
-        # Renombrar columnas
-        r1 = r1.rename(columns={
-            "factura": "Consecutivo",
-            "codigo": "Código producto",
-            "referencia": "Descripción producto",
-            "cantidad": "Cantidad producto"
-        })
-        r1 = r1[["Consecutivo", "Código producto", "Descripción producto", "Cantidad producto", "Valor unitario"]]
-        r1["Consecutivo"] = r1["Consecutivo"].astype(str)
+            # Procesar Reporte 2
+            self.show_progress("🔧 Procesando Reporte 2...")
+            r2 = r2.rename(columns={
+                "NitEmpresa": "Identificación tercero",
+                "f_fact": "Fecha de elaboración",
+                "numero": "Consecutivo",
+                "total": "Valor Forma de Pago"
+            })
+            r2 = r2[["Consecutivo", "Identificación tercero", "Fecha de elaboración", "Valor Forma de Pago"]]
+            r2["Consecutivo"] = r2["Consecutivo"].astype(str)
 
-        # Cargar Reporte 2 sin importar el nombre de la hoja
-        columnas_r2 = ["NitEmpresa", "f_fact", "numero", "total"]
-        r2 = cargar_hoja_con_columnas(archivo2, columnas_r2)
-        logging.info("Reporte 2 cargado con %d registros.", len(r2))
+            # Combinar datos
+            self.show_progress("🔗 Combinando reportes...")
+            df = pd.merge(r1, r2, on="Consecutivo", how="left")
+            logging.info("Registros después del merge: %d", len(df))
 
-        print(f"Columnas del Reporte 2: {r2.columns.tolist()}")
+            # Limpiar datos
+            self.show_progress("🧹 Limpiando datos...")
+            df = df.dropna(subset=["Identificación tercero", "Fecha de elaboración", "Valor Forma de Pago"])
+            df = df[df["Consecutivo"].astype(str).str.startswith(("E", "e"))]
+            df["Consecutivo"] = df["Consecutivo"].astype(str).str.lstrip("Ee")
+            df["Identificación tercero"] = df["Identificación tercero"].astype(str).str.split("-").str[0]
+            df["Fecha de elaboración"] = pd.to_datetime(df["Fecha de elaboración"]).dt.date
 
-        # **IMPORTANTE: Filtro por usuario ANTES del merge**
-        usuario_filtro = usuario_entry.get().strip()
-        if usuario_filtro:
-            if "usuario" in r2.columns:
-                r2_original_count = len(r2)
-                r2 = r2[r2["usuario"].str.contains(usuario_filtro, case=False, na=False)]
-                logging.info("Filtrado por usuario: %s (De %d a %d registros)", usuario_filtro, r2_original_count, len(r2))
-                print(f"🔍 Filtro de usuario aplicado: {r2_original_count} → {len(r2)} registros")
-            else:
-                logging.warning("Se intentó filtrar por usuario, pero la columna 'usuario' no existe en el Reporte 2.")
-                print("⚠️ Advertencia: No se encontró la columna 'usuario' en el Reporte 2")
+            if len(df) == 0:
+                raise ValueError("No quedaron registros después de aplicar los filtros.")
 
-        # Renombrar columnas de Reporte 2
-        r2 = r2.rename(columns={
-            "NitEmpresa": "Identificación tercero",
-            "f_fact": "Fecha de elaboración",
-            "numero": "Consecutivo",
-            "total": "Valor Forma de Pago"
-        })
-        r2 = r2[["Consecutivo", "Identificación tercero", "Fecha de elaboración", "Valor Forma de Pago"]]
-        r2["Consecutivo"] = r2["Consecutivo"].astype(str)
+            # Preparar estructura final
+            self.show_progress("📝 Preparando estructura final...")
+            columnas_objetivo = [
+                "Tipo de comprobante", "Consecutivo", "Identificación tercero", "Sucursal", 
+                "Código centro/subcentro de costos", "Fecha de elaboración", "Sigla Moneda", 
+                "Tasa de cambio", "Nombre contacto", "Email Contacto", "Orden de compra", 
+                "Orden de entrega", "Fecha orden de entrega", "Código producto", 
+                "Descripción producto", "Identificación vendedor", "Código de Bodega", 
+                "Cantidad producto", "Valor unitario", "Valor Descuento", "Base AIU",
+                "Identificación ingreso para terceros", "Código impuesto cargo", 
+                "Código impuesto cargo dos", "Código impuesto retención", "Código ReteICA", 
+                "Código ReteIVA", "Código forma de pago", "Valor Forma de Pago", 
+                "Fecha Vencimiento", "Observaciones"
+            ]
 
-        print(f"📊 Registros antes del merge - R1: {len(r1)}, R2: {len(r2)}")
+            for col in columnas_objetivo:
+                if col not in df.columns:
+                    df[col] = ""
 
-        # **COMBINAR CON LEFT JOIN PERO CONTROLADO**
-        df = pd.merge(r1, r2, on="Consecutivo", how="left")
-        logging.info("Registros después del merge: %d", len(df))
-        print(f"🔗 Registros después del merge: {len(df)}")
+            df["Tipo de comprobante"] = 1
+            df["Identificación vendedor"] = 807001777
 
-        # **VERIFICAR REGISTROS SIN COINCIDENCIA**
-        registros_sin_coincidencia = df[df["Identificación tercero"].isna()]
-        if len(registros_sin_coincidencia) > 0:
-            consecutivos_sin_coincidencia = registros_sin_coincidencia["Consecutivo"].unique()
-            logging.warning("Se encontraron %d registros sin coincidencia en R2. Consecutivos: %s", 
-                          len(registros_sin_coincidencia), str(consecutivos_sin_coincidencia[:10]))
-            print(f"⚠️ {len(registros_sin_coincidencia)} registros sin coincidencia en R2")
-            print(f"Primeros consecutivos sin coincidencia: {consecutivos_sin_coincidencia[:5]}")
+            if self.var_fecha_vencimiento.get():
+                df["Fecha Vencimiento"] = df["Fecha de elaboración"]
 
-        # **FILTRO Y LIMPIEZA - MANTENER SOLO REGISTROS CON DATOS COMPLETOS**
-        print(f"📋 Registros antes de filtros de limpieza: {len(df)}")
-        
-        # Solo mantener registros que tienen datos del Reporte 2 (no NaN)
-        df = df.dropna(subset=["Identificación tercero", "Fecha de elaboración", "Valor Forma de Pago"])
-        print(f"📋 Registros después de eliminar NaN: {len(df)}")
-        logging.info("Registros después de eliminar NaN: %d", len(df))
+            df = df[columnas_objetivo]
+            df['Valor Forma de Pago'] = df.groupby('Consecutivo')['Valor Forma de Pago'].transform('first')
+            df.loc[df.duplicated('Consecutivo'), 'Valor Forma de Pago'] = ''
 
-        # Filtro por consecutivos que empiecen con E o e
-        df = df[df["Consecutivo"].astype(str).str.startswith(("E", "e"))]
-        print(f"📋 Registros después de filtrar por E/e: {len(df)}")
-        logging.info("Registros después de filtrar por E/e: %d", len(df))
+            # Generar archivo
+            self.show_progress("💾 Generando archivo Excel...")
+            carpeta_exportados = os.path.join(os.getcwd(), "Exportados SIIGO")
+            os.makedirs(carpeta_exportados, exist_ok=True)
 
-        # Limpiar el consecutivo eliminando E/e del inicio
-        df["Consecutivo"] = df["Consecutivo"].astype(str).str.lstrip("Ee")
-        
-        # Limpiar identificación tercero (quitar parte después del guión)
-        df["Identificación tercero"] = df["Identificación tercero"].astype(str).str.split("-").str[0]
-        
-        # Convertir fecha a formato date
-        df["Fecha de elaboración"] = pd.to_datetime(df["Fecha de elaboración"]).dt.date
+            fecha_hora = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            archivo_salida = os.path.join(carpeta_exportados, f"SIIGO_Ingresos_{fecha_hora}.xlsx")
 
-        print(f"📋 Registros finales después de limpieza: {len(df)}")
-        logging.info("Registros finales después de limpieza: %d", len(df))
+            wb = openpyxl.load_workbook(plantilla)
+            ws = wb.active
+            ws.delete_rows(2, ws.max_row)
 
-        if len(df) == 0:
-            raise ValueError("No quedaron registros después de aplicar los filtros. Verifique:\n"
-                           "1. Que el filtro de usuario sea correcto\n"
-                           "2. Que existan consecutivos que empiecen con 'E'\n"
-                           "3. Que haya coincidencias entre ambos reportes")
+            for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), start=1):
+                for c_idx, value in enumerate(row, start=1):
+                    cell = ws.cell(row=r_idx, column=c_idx, value=value)
+                    if r_idx == 1:  # Header styling
+                        header_cell = ws.cell(row=1, column=c_idx)
+                        if hasattr(header_cell, 'fill'):
+                            cell.fill = header_cell.fill.copy()
+                        if hasattr(header_cell, 'font'):
+                            cell.font = header_cell.font.copy()
 
-        # Plantilla final
-        columnas_objetivo = [
-            "Tipo de comprobante", "Consecutivo", "Identificación tercero", "Sucursal", "Código centro/subcentro de costos",
-            "Fecha de elaboración", "Sigla Moneda", "Tasa de cambio", "Nombre contacto", "Email Contacto",
-            "Orden de compra", "Orden de entrega", "Fecha orden de entrega", "Código producto", "Descripción producto",
-            "Identificación vendedor", "Código de Bodega", "Cantidad producto", "Valor unitario", "Valor Descuento", "Base AIU",
-            "Identificación ingreso para terceros", "Código impuesto cargo", "Código impuesto cargo dos",
-            "Código impuesto retención", "Código ReteICA", "Código ReteIVA", "Código forma de pago",
-            "Valor Forma de Pago", "Fecha Vencimiento", "Observaciones"
-        ]
+            # Formato de fechas
+            for row in ws.iter_rows(min_row=2, max_row=ws.max_row, 
+                                  min_col=columnas_objetivo.index("Fecha de elaboración") + 1, 
+                                  max_col=columnas_objetivo.index("Fecha de elaboración") + 1):
+                for cell in row:
+                    if isinstance(cell.value, datetime):
+                        cell.number_format = 'YYYY-MM-DD'
 
-        for col in columnas_objetivo:
-            if col not in df.columns:
-                df[col] = ""
+            wb.save(archivo_salida)
+            
+            # Ocultar progreso y mostrar resultado
+            self.hide_progress()
+            logging.info("Archivo generado correctamente: %s", archivo_salida)
+            
+            # Mensaje de éxito mejorado
+            mensaje_exito = f"""
+✅ ¡Proceso completado exitosamente!
 
-        df["Tipo de comprobante"] = 1
-        df["Identificación vendedor"] = 807001777
+📊 Registros procesados: {len(df):,}
+📁 Archivo generado: {os.path.basename(archivo_salida)}
+📂 Ubicación: {carpeta_exportados}
 
-        if var_fecha_vencimiento.get():
-            df["Fecha Vencimiento"] = df["Fecha de elaboración"]
-            logging.info("Fecha de elaboración copiada a Fecha Vencimiento.")
+El archivo está listo para importar en SIIGO.
+            """
+            messagebox.showinfo("🎉 ¡Éxito!", mensaje_exito)
 
-        df = df[columnas_objetivo]
+        except Exception as e:
+            self.hide_progress()
+            logging.exception("Error durante la ejecución")
+            messagebox.showerror("❌ Error", f"Ocurrió un error durante el procesamiento:\n\n{str(e)}")
 
-        # Asignar Valor Forma de Pago solo en la primera fila de cada grupo por 'Consecutivo'
-        df['Valor Forma de Pago'] = df.groupby('Consecutivo')['Valor Forma de Pago'].transform('first')
-        # Que los demás valores sean vacíos en filas duplicadas:
-        df.loc[df.duplicated('Consecutivo'), 'Valor Forma de Pago'] = ''
-
-        # Crear carpeta "exportados" si no existe
-        carpeta_exportados = os.path.join(os.getcwd(), "Exportados SIIGO")
-        os.makedirs(carpeta_exportados, exist_ok=True)
-
-        # Nombre del archivo con fecha y hora
-        fecha_hora = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        archivo_salida = os.path.join(carpeta_exportados, f"SIIGO_Ingresos_{fecha_hora}.xlsx")
-
-        # Cargar la plantilla
-        wb = openpyxl.load_workbook(plantilla)
-        ws = wb.active
-
-        # Limpiar todo menos el encabezado
-        ws.delete_rows(2, ws.max_row)
-
-        # Agregar los datos del DataFrame a partir de la fila 2
-        for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), start=1):
-            for c_idx, value in enumerate(row, start=1):
-                cell = ws.cell(row=r_idx, column=c_idx, value=value)
-
-                # Copiar solo los estilos básicos del encabezado
-                if r_idx == 1:
-                    header_cell = ws.cell(row=1, column=c_idx)
-                    if hasattr(header_cell, 'fill'):
-                        cell.fill = header_cell.fill.copy()
-                    if hasattr(header_cell, 'font'):
-                        cell.font = header_cell.font.copy()
-                    if hasattr(header_cell, 'border'):
-                        cell.border = header_cell.border.copy()
-                    if hasattr(header_cell, 'alignment'):
-                        cell.alignment = header_cell.alignment.copy()
-                    if hasattr(header_cell, 'number_format'):
-                        cell.number_format = header_cell.number_format
-
-        # Asegurar formato de fecha
-        for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=columnas_objetivo.index("Fecha de elaboración") + 1, max_col=columnas_objetivo.index("Fecha de elaboración") + 1):
-            for cell in row:
-                if isinstance(cell.value, datetime):
-                    cell.number_format = 'YYYY-MM-DD'
-
-        wb.save(archivo_salida)
-        logging.info("Archivo generado correctamente: %s", archivo_salida)
-        messagebox.showinfo("¡Éxito!", f"Archivo generado con {len(df)} registros:\n{archivo_salida}")
-
-    except Exception as e:
-        logging.exception("Error durante la ejecución")
-        messagebox.showerror("Error durante el proceso", str(e))
-
-# Botones de selección de archivos
-tk.Button(ventana, text="📂 Cargar Reporte 1", command=lambda: seleccionar_archivo("r1")).pack(pady=5)
-lbl_r1 = tk.Label(ventana, text="⏳ Esperando archivo...", fg="gray")
-lbl_r1.pack()
-
-tk.Button(ventana, text="📂 Cargar Reporte 2", command=lambda: seleccionar_archivo("r2")).pack(pady=5)
-lbl_r2 = tk.Label(ventana, text="⏳ Esperando archivo...", fg="gray")
-lbl_r2.pack()
-
-#Filtar por usuario
-tk.Label(ventana, text="Filtrar por usuario:").pack()
-usuario_entry = tk.Entry(ventana)
-usuario_entry.pack(pady=5)
-
-#Checkbox fecha de elaboración a Fecha de Vencimiento
-var_fecha_vencimiento = tk.BooleanVar()
-tk.Checkbutton(ventana, text="✅ Copiar Fecha de elaboración a Fecha Vencimiento", variable=var_fecha_vencimiento).pack(pady=10)
-
-# Botón ejecutar
-tk.Button(ventana, text="✅ Ejecutar", bg="#4CAF50", fg="white", command=ejecutar).pack(pady=20)
-
-ventana.mainloop()
+# Crear y ejecutar la aplicación
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = ModernSiigoApp(root)
+    root.mainloop()
