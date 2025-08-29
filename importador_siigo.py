@@ -38,17 +38,8 @@ ventana.geometry("450x500")
 try:
     ventana.iconbitmap(obtener_ruta_recurso("icono.ico"))
 except FileNotFoundError:
-    logging.warning("No se pudo cargar el icono: %s", str(e))
+    logging.warning("No se pudo cargar el icono")
     pass  # No se encontró ícono, continuar sin él
-
-# # Diccionario de formas de pago
-# formas_pago = {
-#     "Efectivo": "1",
-#     "Credito": "2",
-#     "Tarjeta credito": "4",
-#     "Bancolombia Corriente": "7",
-#     "Davivienda Corriente": "9"
-# }
 
 def seleccionar_archivo(tipo):
     global archivo1, archivo2, plantilla
@@ -79,20 +70,34 @@ def ejecutar():
 
         # Cargar Reporte 1
         def cargar_hoja_con_columnas(archivo, columnas_esperadas):
-            
-            # Detectar motor según extensión
-            if archivo.lower().endswith(".xls"):
-                xls = pd.ExcelFile(archivo, engine="xlrd")      # Para .xls (antiguo)
-            else:
-                xls = pd.ExcelFile(archivo, engine="openpyxl")  # Para .xlsx (nuevo)
+            try:
+                # Detectar motor según extensión
+                if archivo.lower().endswith(".xls"):
+                    with open(archivo, "rb") as f:
+                        inicio = f.read(1024)
+                    if b"<table" in inicio.lower():  # 👈 Es un HTML disfrazado de .xls
+                        df_list = pd.read_html(archivo)  # Devuelve lista de tablas
+                        for df in df_list:
+                            if all(col in df.columns for col in columnas_esperadas):
+                                return df
+                        raise ValueError(f"No se encontró una tabla con las columnas requeridas en {archivo}.")
+                    else:
+                        xls = pd.ExcelFile(archivo, engine="xlrd")
+                else:
+                    xls = pd.ExcelFile(archivo, engine="openpyxl")
 
-            for nombre_hoja in xls.sheet_names:
-                df = pd.read_excel(xls, sheet_name=nombre_hoja, engine='openpyxl' if archivo.endswith('.xlsx') else 'xlrd')
-                if all(col in df.columns for col in columnas_esperadas):
-                    return df
-            columnas_encontradas = df.columns.tolist()
-            columnas_faltantes = [col for col in columnas_esperadas if col not in columnas_encontradas]
-            raise ValueError(f"No se encontró una hoja con las columnas requeridas en {archivo}.")
+                for nombre_hoja in xls.sheet_names:
+                    df = pd.read_excel(xls, sheet_name=nombre_hoja, engine='openpyxl' if archivo.endswith('.xlsx') else 'xlrd')
+                    if all(col in df.columns for col in columnas_esperadas):
+                        return df
+                    
+                columnas_encontradas = df.columns.tolist()
+                columnas_faltantes = [col for col in columnas_esperadas if col not in columnas_encontradas]
+
+                raise ValueError(f"No se encontró una hoja con las columnas requeridas en {archivo}.")
+            except Exception as e:
+                logging.error("Error cargando hoja desde %s: %s", archivo, e)
+                raise
 
         # Cargar Reporte 1 sin importar el nombre de la hoja
         columnas_r1 = ["factura", "codigo", "referencia", "cantidad", "valor_total"]
@@ -101,6 +106,7 @@ def ejecutar():
 
         # Filtrar filas donde 'valor_total' es 0
         r1 = r1[r1["valor_total"] != 0]
+        logging.info("Reporte 1 después de filtrar valor_total=0: %d registros.", len(r1))
 
         # Agregar la columna 'Valor unitario' calculando la división de 'valor_total' por 'cantidad'
         r1["Valor unitario"] = r1["valor_total"] / r1["cantidad"]
@@ -120,17 +126,19 @@ def ejecutar():
         r2 = cargar_hoja_con_columnas(archivo2, columnas_r2)
         logging.info("Reporte 2 cargado con %d registros.", len(r2))
 
-        print(r2.columns)
+        print(f"Columnas del Reporte 2: {r2.columns.tolist()}")
 
-        # Filtro por usuario
+        # **IMPORTANTE: Filtro por usuario ANTES del merge**
         usuario_filtro = usuario_entry.get().strip()
         if usuario_filtro:
             if "usuario" in r2.columns:
+                r2_original_count = len(r2)
                 r2 = r2[r2["usuario"].str.contains(usuario_filtro, case=False, na=False)]
-                logging.info("Filtrado por usuario: %s (Registros después del filtro: %d)", usuario_filtro, len(r2))
+                logging.info("Filtrado por usuario: %s (De %d a %d registros)", usuario_filtro, r2_original_count, len(r2))
+                print(f"🔍 Filtro de usuario aplicado: {r2_original_count} → {len(r2)} registros")
             else:
                 logging.warning("Se intentó filtrar por usuario, pero la columna 'usuario' no existe en el Reporte 2.")
-
+                print("⚠️ Advertencia: No se encontró la columna 'usuario' en el Reporte 2")
 
         # Renombrar columnas de Reporte 2
         r2 = r2.rename(columns={
@@ -142,15 +150,52 @@ def ejecutar():
         r2 = r2[["Consecutivo", "Identificación tercero", "Fecha de elaboración", "Valor Forma de Pago"]]
         r2["Consecutivo"] = r2["Consecutivo"].astype(str)
 
-        # Combinar
-        df = pd.merge(r1, r2, on="Consecutivo", how="left")
-        logging.info("Registros combinados: %d", len(df))
+        print(f"📊 Registros antes del merge - R1: {len(r1)}, R2: {len(r2)}")
 
-        # Filtro y limpieza
+        # **COMBINAR CON LEFT JOIN PERO CONTROLADO**
+        df = pd.merge(r1, r2, on="Consecutivo", how="left")
+        logging.info("Registros después del merge: %d", len(df))
+        print(f"🔗 Registros después del merge: {len(df)}")
+
+        # **VERIFICAR REGISTROS SIN COINCIDENCIA**
+        registros_sin_coincidencia = df[df["Identificación tercero"].isna()]
+        if len(registros_sin_coincidencia) > 0:
+            consecutivos_sin_coincidencia = registros_sin_coincidencia["Consecutivo"].unique()
+            logging.warning("Se encontraron %d registros sin coincidencia en R2. Consecutivos: %s", 
+                          len(registros_sin_coincidencia), str(consecutivos_sin_coincidencia[:10]))
+            print(f"⚠️ {len(registros_sin_coincidencia)} registros sin coincidencia en R2")
+            print(f"Primeros consecutivos sin coincidencia: {consecutivos_sin_coincidencia[:5]}")
+
+        # **FILTRO Y LIMPIEZA - MANTENER SOLO REGISTROS CON DATOS COMPLETOS**
+        print(f"📋 Registros antes de filtros de limpieza: {len(df)}")
+        
+        # Solo mantener registros que tienen datos del Reporte 2 (no NaN)
+        df = df.dropna(subset=["Identificación tercero", "Fecha de elaboración", "Valor Forma de Pago"])
+        print(f"📋 Registros después de eliminar NaN: {len(df)}")
+        logging.info("Registros después de eliminar NaN: %d", len(df))
+
+        # Filtro por consecutivos que empiecen con E o e
         df = df[df["Consecutivo"].astype(str).str.startswith(("E", "e"))]
+        print(f"📋 Registros después de filtrar por E/e: {len(df)}")
+        logging.info("Registros después de filtrar por E/e: %d", len(df))
+
+        # Limpiar el consecutivo eliminando E/e del inicio
         df["Consecutivo"] = df["Consecutivo"].astype(str).str.lstrip("Ee")
+        
+        # Limpiar identificación tercero (quitar parte después del guión)
         df["Identificación tercero"] = df["Identificación tercero"].astype(str).str.split("-").str[0]
+        
+        # Convertir fecha a formato date
         df["Fecha de elaboración"] = pd.to_datetime(df["Fecha de elaboración"]).dt.date
+
+        print(f"📋 Registros finales después de limpieza: {len(df)}")
+        logging.info("Registros finales después de limpieza: %d", len(df))
+
+        if len(df) == 0:
+            raise ValueError("No quedaron registros después de aplicar los filtros. Verifique:\n"
+                           "1. Que el filtro de usuario sea correcto\n"
+                           "2. Que existan consecutivos que empiecen con 'E'\n"
+                           "3. Que haya coincidencias entre ambos reportes")
 
         # Plantilla final
         columnas_objetivo = [
@@ -174,26 +219,12 @@ def ejecutar():
             df["Fecha Vencimiento"] = df["Fecha de elaboración"]
             logging.info("Fecha de elaboración copiada a Fecha Vencimiento.")
 
-        # if var_retencion.get():
-        #     df["Código impuesto retención"] = "20"
-        #     logging.info("Se aplicó retención (Código 20)")
-
-        # metodo_pago = combo_pago.get()
-        # if metodo_pago in formas_pago:
-        #     df["Código forma de pago"] = formas_pago[metodo_pago]
-        #     logging.info("Método de pago seleccionado: %s", metodo_pago)
-        # else:
-        #     df["Código forma de pago"] = ""
-
         df = df[columnas_objetivo]
-
-        from datetime import datetime
 
         # Asignar Valor Forma de Pago solo en la primera fila de cada grupo por 'Consecutivo'
         df['Valor Forma de Pago'] = df.groupby('Consecutivo')['Valor Forma de Pago'].transform('first')
-
-        # Que los demás valores sean NaN (vacíos):
-        df['Valor Forma de Pago'] = df['Valor Forma de Pago'].where(df.duplicated('Consecutivo') == False, '')
+        # Que los demás valores sean vacíos en filas duplicadas:
+        df.loc[df.duplicated('Consecutivo'), 'Valor Forma de Pago'] = ''
 
         # Crear carpeta "exportados" si no existe
         carpeta_exportados = os.path.join(os.getcwd(), "Exportados SIIGO")
@@ -215,44 +246,29 @@ def ejecutar():
             for c_idx, value in enumerate(row, start=1):
                 cell = ws.cell(row=r_idx, column=c_idx, value=value)
 
-                # Copiar solo los estilos básicos
+                # Copiar solo los estilos básicos del encabezado
                 if r_idx == 1:
-                    # Solo copiar estilos al encabezado (primera fila)
                     header_cell = ws.cell(row=1, column=c_idx)
-
-                    # Copiar el color de fondo de la celda del encabezado (relleno)
                     if hasattr(header_cell, 'fill'):
                         cell.fill = header_cell.fill.copy()
-
-                    # Copiar la fuente (fuente: tipo de letra, tamaño, color, etc.)
                     if hasattr(header_cell, 'font'):
                         cell.font = header_cell.font.copy()
-
-                    # Copiar bordes (si los tiene)
                     if hasattr(header_cell, 'border'):
                         cell.border = header_cell.border.copy()
-
-                    # Copiar alineación (si la tiene)
                     if hasattr(header_cell, 'alignment'):
                         cell.alignment = header_cell.alignment.copy()
-
-                    # Copiar formato de número (si lo tiene)
                     if hasattr(header_cell, 'number_format'):
                         cell.number_format = header_cell.number_format
 
-                # Agregar un log para ver qué celdas están siendo procesadas
-                # logging.info(f"Procesando celda en fila {r_idx}, columna {c_idx} con valor {value}")
-
-        # Asegúrate de que las celdas con fechas tengan el formato de fecha
+        # Asegurar formato de fecha
         for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=columnas_objetivo.index("Fecha de elaboración") + 1, max_col=columnas_objetivo.index("Fecha de elaboración") + 1):
             for cell in row:
-                if isinstance(cell.value, datetime):  # Verificar si es una fecha
-                    cell.number_format = 'YYYY-MM-DD'  # Ajustar el formato a 'Año-Mes-Día'
-
+                if isinstance(cell.value, datetime):
+                    cell.number_format = 'YYYY-MM-DD'
 
         wb.save(archivo_salida)
         logging.info("Archivo generado correctamente: %s", archivo_salida)
-        messagebox.showinfo("¡Éxito!", f"Archivo generado:\n{archivo_salida}")
+        messagebox.showinfo("¡Éxito!", f"Archivo generado con {len(df)} registros:\n{archivo_salida}")
 
     except Exception as e:
         logging.exception("Error durante la ejecución")
@@ -275,15 +291,6 @@ usuario_entry.pack(pady=5)
 #Checkbox fecha de elaboración a Fecha de Vencimiento
 var_fecha_vencimiento = tk.BooleanVar()
 tk.Checkbutton(ventana, text="✅ Copiar Fecha de elaboración a Fecha Vencimiento", variable=var_fecha_vencimiento).pack(pady=10)
-
-# # Checkbox para retención
-# var_retencion = tk.BooleanVar()
-# tk.Checkbutton(ventana, text="✅ Aplicar retención (Código 20)", variable=var_retencion).pack(pady=10)
-
-# # Combo para método de pago
-# tk.Label(ventana, text="Selecciona la forma de pago:").pack()
-# combo_pago = ttk.Combobox(ventana, values=[""] + list(formas_pago.keys()), state="readonly")
-# combo_pago.pack(pady=5)
 
 # Botón ejecutar
 tk.Button(ventana, text="✅ Ejecutar", bg="#4CAF50", fg="white", command=ejecutar).pack(pady=20)
