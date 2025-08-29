@@ -37,9 +37,9 @@ class ModernSiigoApp:
         
     def setup_window(self):
         """Configurar la ventana principal"""
-        self.root.title("🚀 Herramienta de Importación SIIGO")
+        self.root.title("🚀 Herramienta de Importación SIIGO - v2")
         self.root.geometry("600x700")
-        self.root.configure(bg='#f0f0f0')
+        self.root.configure(bg="#fff4e5")
         
         # Centrar ventana
         self.center_window()
@@ -69,8 +69,8 @@ class ModernSiigoApp:
         # Colores personalizados
         self.colors = {
             'primary': '#2E86C1',
-            'secondary': '#48C9B0',
-            'success': '#58D68D',
+            'secondary': '#1B7B3A',
+            'success': '#1B7B3A',
             'danger': '#EC7063',
             'warning': '#F7DC6F',
             'light': '#F8F9FA',
@@ -117,23 +117,11 @@ class ModernSiigoApp:
         # Header
         self.create_header(main_frame)
         
-        # Separador
-        separator1 = ttk.Separator(main_frame, orient='horizontal')
-        separator1.pack(fill=tk.X, pady=(20, 30))
-        
         # Sección de archivos
         self.create_file_section(main_frame)
         
-        # Separador
-        separator2 = ttk.Separator(main_frame, orient='horizontal')
-        separator2.pack(fill=tk.X, pady=(30, 20))
-        
         # Sección de configuración
         self.create_config_section(main_frame)
-        
-        # Separador
-        separator3 = ttk.Separator(main_frame, orient='horizontal')
-        separator3.pack(fill=tk.X, pady=(20, 30))
         
         # Botón ejecutar
         self.create_execute_section(main_frame)
@@ -148,7 +136,7 @@ class ModernSiigoApp:
         
         # Título principal
         title_label = tk.Label(header_frame,
-                              text="Herramienta de Importación SIIGO",
+                              text="Herramienta de Importación SIIGO - v2",
                               font=('Arial', 18, 'bold'),
                               fg=self.colors['dark'],
                               bg='#f0f0f0')
@@ -183,12 +171,20 @@ class ModernSiigoApp:
                            command=lambda: self.seleccionar_archivo("r1"))
         r1_btn.pack(side=tk.LEFT)
         
-        self.lbl_r1 = tk.Label(r1_frame,
-                              text="⏳ Esperando archivo...",
-                              font=('Arial', 9),
-                              fg='#666666',
-                              bg='#f0f0f0')
-        self.lbl_r1.pack(side=tk.LEFT, padx=(15, 0))
+        self.lbl_r1_status = tk.Label(r1_frame,
+                                     text="⏳ Esperando archivo...",
+                                     font=('Arial', 9),
+                                     fg='#666666',
+                                     bg='#f0f0f0')
+        self.lbl_r1_status.pack(side=tk.LEFT, padx=(15, 0))
+        
+        # Label para nombre de archivo R1
+        self.lbl_r1_name = tk.Label(r1_frame,
+                                   text="",
+                                   font=('Arial', 8),
+                                   fg='#1B7B3A',
+                                   bg='#f0f0f0',
+                                   wraplength=400)
         
         # Reporte 2
         r2_frame = tk.Frame(files_frame, bg='#f0f0f0')
@@ -200,12 +196,20 @@ class ModernSiigoApp:
                            command=lambda: self.seleccionar_archivo("r2"))
         r2_btn.pack(side=tk.LEFT)
         
-        self.lbl_r2 = tk.Label(r2_frame,
-                              text="⏳ Esperando archivo...",
-                              font=('Arial', 9),
-                              fg='#666666',
-                              bg='#f0f0f0')
-        self.lbl_r2.pack(side=tk.LEFT, padx=(15, 0))
+        self.lbl_r2_status = tk.Label(r2_frame,
+                                     text="⏳ Esperando archivo...",
+                                     font=('Arial', 9),
+                                     fg='#666666',
+                                     bg='#f0f0f0')
+        self.lbl_r2_status.pack(side=tk.LEFT, padx=(15, 0))
+        
+        # Label para nombre de archivo R2
+        self.lbl_r2_name = tk.Label(r2_frame,
+                                   text="",
+                                   font=('Arial', 8),
+                                   fg='#1B7B3A',
+                                   bg='#f0f0f0',
+                                   wraplength=400)
 
     def create_config_section(self, parent):
         """Crear la sección de configuración"""
@@ -216,9 +220,9 @@ class ModernSiigoApp:
                                     bg='#f0f0f0',
                                     padx=20,
                                     pady=15)
-        config_frame.pack(fill=tk.X, pady=(0, 10))
+        config_frame.pack(fill=tk.X, pady=(10, 10))
         
-        # Filtro por usuario
+        # Filtro por usuario con mejoras
         user_frame = tk.Frame(config_frame, bg='#f0f0f0')
         user_frame.pack(fill=tk.X, pady=(0, 15))
         
@@ -229,17 +233,63 @@ class ModernSiigoApp:
                              bg='#f0f0f0')
         user_label.pack(anchor=tk.W)
         
-        self.usuario_entry = tk.Entry(user_frame,
+        # Frame para entry y opciones
+        entry_frame = tk.Frame(user_frame, bg='#f0f0f0')
+        entry_frame.pack(fill=tk.X, pady=(5, 0))
+        
+        self.usuario_entry = tk.Entry(entry_frame,
                                      font=('Arial', 10),
                                      relief='solid',
                                      bd=1,
                                      bg=self.colors['white'],
                                      width=30)
-        self.usuario_entry.pack(anchor=tk.W, pady=(5, 0))
+        self.usuario_entry.pack(side=tk.LEFT)
+        
+        # Botón para mostrar usuarios disponibles
+        btn_mostrar_usuarios = ttk.Button(entry_frame,
+                                         text="Ver Usuarios",
+                                         style='Primary.TButton',
+                                         command=self.mostrar_usuarios_disponibles)
+        btn_mostrar_usuarios.pack(side=tk.LEFT, padx=(10, 0))
+        
+        # Opciones de filtro
+        filter_options_frame = tk.Frame(user_frame, bg='#f0f0f0')
+        filter_options_frame.pack(fill=tk.X, pady=(10, 0))
+        
+        self.var_filtro_exacto = tk.BooleanVar()
+        filtro_exacto_check = tk.Checkbutton(filter_options_frame,
+                                            text="Coincidencia exacta",
+                                            variable=self.var_filtro_exacto,
+                                            font=('Arial', 9),
+                                            fg=self.colors['dark'],
+                                            bg='#f0f0f0',
+                                            activebackground='#f0f0f0')
+        filtro_exacto_check.pack(side=tk.LEFT)
+        
+        self.var_case_sensitive = tk.BooleanVar()
+        case_sensitive_check = tk.Checkbutton(filter_options_frame,
+                                             text="Sensible a mayúsculas",
+                                             variable=self.var_case_sensitive,
+                                             font=('Arial', 9),
+                                             fg=self.colors['dark'],
+                                             bg='#f0f0f0',
+                                             activebackground='#f0f0f0')
+        case_sensitive_check.pack(side=tk.LEFT, padx=(20, 0))
+        
+        # Label para feedback del filtro
+        self.lbl_filtro_info = tk.Label(user_frame,
+                                       text="",
+                                       font=('Arial', 8),
+                                       fg='#666666',
+                                       bg='#f0f0f0',
+                                       wraplength=500)
         
         # Checkbox fecha vencimiento
+        fecha_frame = tk.Frame(config_frame, bg='#f0f0f0')
+        fecha_frame.pack(fill=tk.X, pady=(15, 0))
+        
         self.var_fecha_vencimiento = tk.BooleanVar()
-        fecha_check = tk.Checkbutton(config_frame,
+        fecha_check = tk.Checkbutton(fecha_frame,
                                     text="📅 Copiar Fecha de elaboración a Fecha Vencimiento",
                                     variable=self.var_fecha_vencimiento,
                                     font=('Arial', 10),
@@ -277,7 +327,7 @@ class ModernSiigoApp:
         footer_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(30, 0))
         
         footer_label = tk.Label(footer_frame,
-                               text="💡 Tip: Revisa los logs en siigo_log.txt para más detalles",
+                               text="💡 Versión 2 | Revisa los logs en siigo_log.txt para más detalles",
                                font=('Arial', 8),
                                fg='#888888',
                                bg='#f0f0f0')
@@ -294,16 +344,155 @@ class ModernSiigoApp:
         )
         
         if ruta:
+            nombre_archivo = os.path.basename(ruta)
+            
             if tipo == "r1":
                 archivo1 = ruta
-                self.lbl_r1.config(text="✅ Archivo cargado correctamente",
-                                  fg=self.colors['success'])
+                self.lbl_r1_status.config(text="✅ Archivo cargado correctamente",
+                                         fg=self.colors['success'])
+                self.lbl_r1_name.config(text=f"📄 {nombre_archivo}")
+                self.lbl_r1_name.pack(pady=(5, 0))
                 logging.info("Reporte 1 cargado: %s", archivo1)
+                
             elif tipo == "r2":
                 archivo2 = ruta
-                self.lbl_r2.config(text="✅ Archivo cargado correctamente",
-                                  fg=self.colors['success'])
+                self.lbl_r2_status.config(text="✅ Archivo cargado correctamente",
+                                         fg=self.colors['success'])
+                self.lbl_r2_name.config(text=f"📄 {nombre_archivo}")
+                self.lbl_r2_name.pack(pady=(5, 0))
                 logging.info("Reporte 2 cargado: %s", archivo2)
+
+    def mostrar_usuarios_disponibles(self):
+        """Mostrar usuarios disponibles en el Reporte 2"""
+        global archivo2
+        
+        if not archivo2:
+            messagebox.showwarning("Advertencia", "Primero carga el Reporte 2 (Facturas)")
+            return
+        
+        try:
+            # Cargar solo para ver usuarios
+            def cargar_hoja_con_columnas_simple(archivo):
+                if archivo.lower().endswith(".xls"):
+                    with open(archivo, "rb") as f:
+                        inicio = f.read(1024)
+                    if b"<table" in inicio.lower():
+                        df_list = pd.read_html(archivo)
+                        return df_list[0] if df_list else pd.DataFrame()
+                    else:
+                        return pd.read_excel(archivo, engine="xlrd")
+                else:
+                    return pd.read_excel(archivo, engine="openpyxl")
+            
+            df = cargar_hoja_con_columnas_simple(archivo2)
+            
+            if "usuario" not in df.columns:
+                messagebox.showinfo("Información", "No se encontró la columna 'usuario' en el Reporte 2")
+                return
+            
+            # Obtener usuarios únicos
+            usuarios = df["usuario"].dropna().unique()
+            usuarios = sorted([str(u).strip() for u in usuarios if str(u).strip()])
+            
+            if not usuarios:
+                messagebox.showinfo("Información", "No se encontraron usuarios en el Reporte 2")
+                return
+            
+            # Crear ventana para mostrar usuarios
+            ventana_usuarios = tk.Toplevel(self.root)
+            ventana_usuarios.title("Usuarios Disponibles")
+            ventana_usuarios.geometry("400x500")
+            ventana_usuarios.configure(bg='#f0f0f0')
+            
+            # Lista de usuarios
+            frame_lista = tk.Frame(ventana_usuarios, bg='#f0f0f0', padx=20, pady=20)
+            frame_lista.pack(fill=tk.BOTH, expand=True)
+            
+            tk.Label(frame_lista,
+                    text=f"Usuarios encontrados ({len(usuarios)}):",
+                    font=('Arial', 12, 'bold'),
+                    bg='#f0f0f0').pack(anchor=tk.W, pady=(0, 10))
+            
+            # Scrollable listbox
+            listbox_frame = tk.Frame(frame_lista, bg='#f0f0f0')
+            listbox_frame.pack(fill=tk.BOTH, expand=True)
+            
+            scrollbar = tk.Scrollbar(listbox_frame)
+            scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+            
+            listbox = tk.Listbox(listbox_frame, 
+                                yscrollcommand=scrollbar.set,
+                                font=('Arial', 10),
+                                bg='white',
+                                selectmode=tk.SINGLE)
+            listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            scrollbar.config(command=listbox.yview)
+            
+            for usuario in usuarios:
+                listbox.insert(tk.END, usuario)
+            
+            # Botón para seleccionar
+            def seleccionar_usuario():
+                selection = listbox.curselection()
+                if selection:
+                    usuario_seleccionado = listbox.get(selection[0])
+                    self.usuario_entry.delete(0, tk.END)
+                    self.usuario_entry.insert(0, usuario_seleccionado)
+                    ventana_usuarios.destroy()
+            
+            btn_seleccionar = ttk.Button(frame_lista,
+                                        text="Usar Usuario Seleccionado",
+                                        style='Primary.TButton',
+                                        command=seleccionar_usuario)
+            btn_seleccionar.pack(pady=(10, 0))
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al cargar usuarios: {str(e)}")
+
+    def aplicar_filtro_usuario_mejorado(self, df, usuario_filtro):
+        """Aplicar filtro de usuario con opciones mejoradas"""
+        if not usuario_filtro or "usuario" not in df.columns:
+            return df, "Sin filtro aplicado"
+        
+        df_original_count = len(df)
+        usuario_filtro = usuario_filtro.strip()
+        
+        try:
+            # Limpiar datos de usuario (eliminar NaN y convertir a string)
+            df_filtrado = df.copy()
+            df_filtrado["usuario"] = df_filtrado["usuario"].fillna("").astype(str)
+            
+            if self.var_filtro_exacto.get():
+                # Filtro exacto
+                if self.var_case_sensitive.get():
+                    mask = df_filtrado["usuario"] == usuario_filtro
+                else:
+                    mask = df_filtrado["usuario"].str.lower() == usuario_filtro.lower()
+            else:
+                # Filtro con contains
+                if self.var_case_sensitive.get():
+                    mask = df_filtrado["usuario"].str.contains(usuario_filtro, na=False, regex=False)
+                else:
+                    mask = df_filtrado["usuario"].str.contains(usuario_filtro, case=False, na=False, regex=False)
+            
+            df_resultado = df_filtrado[mask]
+            df_final_count = len(df_resultado)
+            
+            # Crear mensaje informativo
+            if df_final_count == 0:
+                mensaje = f"⚠️ Filtro '{usuario_filtro}' no encontró coincidencias"
+                tipo = "warning"
+            elif df_final_count == df_original_count:
+                mensaje = f"ℹ️ Filtro '{usuario_filtro}' no afectó los datos"
+                tipo = "info"
+            else:
+                mensaje = f"✅ Filtro '{usuario_filtro}': {df_original_count} → {df_final_count} registros"
+                tipo = "success"
+            
+            return df_resultado, mensaje, tipo
+            
+        except Exception as e:
+            return df, f"❌ Error en filtro: {str(e)}", "error"
 
     def show_progress(self, message):
         """Mostrar barra de progreso y mensaje de estado"""
@@ -321,8 +510,11 @@ class ModernSiigoApp:
         self.root.update()
 
     def ejecutar(self):
-        """Ejecutar el proceso principal con mejor UX"""
+        """Ejecutar el proceso principal con filtro de usuario mejorado"""
         try:
+            # Limpiar info previa del filtro
+            self.lbl_filtro_info.pack_forget()
+            
             # Validaciones iniciales
             if not archivo1 or not archivo2 or not plantilla:
                 messagebox.showerror("❌ Error", "Debes cargar todos los archivos requeridos.")
@@ -390,17 +582,43 @@ class ModernSiigoApp:
             r2 = cargar_hoja_con_columnas(archivo2, columnas_r2)
             logging.info("Reporte 2 cargado con %d registros.", len(r2))
 
-            # Filtrar por usuario si se especifica
+            # APLICAR FILTRO DE USUARIO MEJORADO
             usuario_filtro = self.usuario_entry.get().strip()
+            filtro_mensaje = ""
+            filtro_tipo = "info"
+            
             if usuario_filtro:
-                self.show_progress(f"👤 Filtrando por usuario: {usuario_filtro}")
-                if "usuario" in r2.columns:
-                    r2_original_count = len(r2)
-                    r2 = r2[r2["usuario"].str.contains(usuario_filtro, case=False, na=False)]
-                    logging.info("Filtrado por usuario: %s (De %d a %d registros)", 
-                               usuario_filtro, r2_original_count, len(r2))
-                else:
-                    logging.warning("Columna 'usuario' no encontrada en el Reporte 2.")
+                self.show_progress(f"👤 Aplicando filtro de usuario: {usuario_filtro}")
+                r2, filtro_mensaje, filtro_tipo = self.aplicar_filtro_usuario_mejorado(r2, usuario_filtro)
+                
+                # Mostrar resultado del filtro
+                color_mensaje = {
+                    "success": "#1B7B3A",
+                    "warning": "#F39C12",
+                    "error": "#E74C3C",
+                    "info": "#3498DB"
+                }.get(filtro_tipo, "#666666")
+                
+                self.lbl_filtro_info.config(text=filtro_mensaje, fg=color_mensaje)
+                self.lbl_filtro_info.pack(pady=(10, 0))
+                
+                logging.info("Filtro de usuario aplicado: %s", filtro_mensaje)
+                
+                # Si no hay registros después del filtro, mostrar advertencia
+                if len(r2) == 0:
+                    self.hide_progress()
+                    respuesta = messagebox.askyesno(
+                        "Sin Resultados", 
+                        f"El filtro de usuario '{usuario_filtro}' eliminó todos los registros.\n\n"
+                        "¿Deseas continuar sin filtro de usuario?")
+                    if respuesta:
+                        # Recargar sin filtro
+                        self.show_progress("🔄 Recargando sin filtro...")
+                        r2 = cargar_hoja_con_columnas(archivo2, columnas_r2)
+                        self.lbl_filtro_info.config(text="ℹ️ Procesando sin filtro de usuario", 
+                                                   fg="#3498DB")
+                    else:
+                        return
 
             # Procesar Reporte 2
             self.show_progress("🔧 Procesando Reporte 2...")
@@ -418,6 +636,11 @@ class ModernSiigoApp:
             df = pd.merge(r1, r2, on="Consecutivo", how="left")
             logging.info("Registros después del merge: %d", len(df))
 
+            # Verificar registros sin coincidencia
+            registros_sin_coincidencia = df[df["Identificación tercero"].isna()]
+            if len(registros_sin_coincidencia) > 0:
+                logging.warning("Se encontraron %d registros sin coincidencia en R2", len(registros_sin_coincidencia))
+
             # Limpiar datos
             self.show_progress("🧹 Limpiando datos...")
             df = df.dropna(subset=["Identificación tercero", "Fecha de elaboración", "Valor Forma de Pago"])
@@ -427,7 +650,13 @@ class ModernSiigoApp:
             df["Fecha de elaboración"] = pd.to_datetime(df["Fecha de elaboración"]).dt.date
 
             if len(df) == 0:
-                raise ValueError("No quedaron registros después de aplicar los filtros.")
+                self.hide_progress()
+                mensaje_error = "No quedaron registros después de aplicar los filtros.\n\n"
+                mensaje_error += "Posibles causas:\n"
+                mensaje_error += "• El filtro de usuario es muy restrictivo\n"
+                mensaje_error += "• No hay consecutivos que empiecen con 'E'\n"
+                mensaje_error += "• No hay coincidencias entre ambos reportes"
+                raise ValueError(mensaje_error)
 
             # Preparar estructura final
             self.show_progress("📝 Preparando estructura final...")
@@ -453,6 +682,7 @@ class ModernSiigoApp:
 
             if self.var_fecha_vencimiento.get():
                 df["Fecha Vencimiento"] = df["Fecha de elaboración"]
+                logging.info("Fecha de elaboración copiada a Fecha Vencimiento.")
 
             df = df[columnas_objetivo]
             df['Valor Forma de Pago'] = df.groupby('Consecutivo')['Valor Forma de Pago'].transform('first')
@@ -494,22 +724,23 @@ class ModernSiigoApp:
             self.hide_progress()
             logging.info("Archivo generado correctamente: %s", archivo_salida)
             
-            # Mensaje de éxito mejorado
-            mensaje_exito = f"""
-✅ ¡Proceso completado exitosamente!
+            # Mensaje de éxito con información del filtro
+            mensaje_exito = f"""¡Proceso completado exitosamente!
 
 📊 Registros procesados: {len(df):,}
 📁 Archivo generado: {os.path.basename(archivo_salida)}
 📂 Ubicación: {carpeta_exportados}
 
-El archivo está listo para importar en SIIGO.
-            """
-            messagebox.showinfo("🎉 ¡Éxito!", mensaje_exito)
+{filtro_mensaje if filtro_mensaje else ''}
+
+El archivo está listo para importar en SIIGO."""
+            
+            messagebox.showinfo("¡Éxito!", mensaje_exito)
 
         except Exception as e:
             self.hide_progress()
             logging.exception("Error durante la ejecución")
-            messagebox.showerror("❌ Error", f"Ocurrió un error durante el procesamiento:\n\n{str(e)}")
+            messagebox.showerror("Error", f"Ocurrió un error durante el procesamiento:\n\n{str(e)}")
 
 # Crear y ejecutar la aplicación
 if __name__ == "__main__":
