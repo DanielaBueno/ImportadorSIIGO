@@ -1,0 +1,34 @@
+# Herramienta SIIGO v2 - Dependencias
+# Generado el: 2025-08-30
+# Python version: >=3.8
+
+# Core data processing
+pandas>=2.0.0,<3.0.0
+numpy>=1.24.0,<2.0.0
+
+# Excel file handling
+openpyxl>=3.1.0,<4.0.0
+xlrd>=2.0.0,<3.0.0
+
+# Modern GUI framework
+customtkinter>=5.2.0,<6.0.0
+
+# Additional file format support
+lxml>=4.9.0,<5.0.0
+
+# For HTML table parsing (fallback for some .xls files)
+html5lib>=1.1,<2.0
+beautifulsoup4>=4.11.0,<5.0.0
+
+# Development dependencies (optional)
+# Uncomment for development environment
+# pytest>=7.0.0,<8.0.0
+# pytest-cov>=4.0.0,<5.0.0
+# black>=23.0.0,<24.0.0
+# flake8>=6.0.0,<7.0.0
+# mypy>=1.0.0,<2.0.0
+
+# Build dependencies (for creating executable)
+# Uncomment when building with PyInstaller
+# pyinstaller>=5.10.0,<6.0.0
+# pyinstaller-hooks-contrib>=2023.0,<2024.0
