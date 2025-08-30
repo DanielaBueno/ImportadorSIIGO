@@ -137,7 +137,6 @@ class DataProcessor:
                 tipo = "success"
             
             return df_resultado, mensaje, tipo
-            
         except Exception as e:
             return df, f"❌ Error en filtro: {str(e)}", "error"
     
@@ -383,6 +382,8 @@ class ModernSiigoApp:
                                    text="📊 Cargar Reporte 1 (Productos)",
                                    corner_radius=10,
                                    width=200,
+                                   fg_color="#1B7B3A",  # Color verde personalizado
+                                   hover_color="green",
                                    command=lambda: self.seleccionar_archivo("r1"))
         self.btn_r1.pack(side="left")
         
@@ -399,6 +400,8 @@ class ModernSiigoApp:
                                    text="📋 Cargar Reporte 2 (Facturas)",
                                    corner_radius=10,
                                    width=200,
+                                   fg_color="#1B7B3A",  # Color verde personalizado
+                                   hover_color="green",
                                    command=lambda: self.seleccionar_archivo("r2"))
         self.btn_r2.pack(side="left")
         
@@ -438,6 +441,8 @@ class ModernSiigoApp:
         btn_usuarios = ctk.CTkButton(entry_frame,
                                    text="Ver Usuarios",
                                    width=100,
+                                   fg_color="#1B7B3A",  # Color verde personalizado
+                                   hover_color="green",
                                    command=self.mostrar_usuarios_disponibles)
         btn_usuarios.pack(side="left", padx=(10, 0))
         
@@ -477,8 +482,8 @@ class ModernSiigoApp:
         self.btn_execute = ctk.CTkButton(execute_frame,
                                         text="🚀 EJECUTAR PROCESO",
                                         corner_radius=20,
-                                        fg_color="green",
-                                        hover_color="darkgreen",
+                                        fg_color="#1B7B3A",  # Color verde personalizado
+                                        hover_color="green",
                                         width=300,
                                         height=50,
                                         font=ctk.CTkFont(size=16, weight="bold"),
@@ -640,7 +645,7 @@ class ModernSiigoApp:
                 raise FileNotFoundError(f"El archivo Reporte 2 no fue encontrado: {self.archivo2}")
 
             # Procesar datos
-            self.show_status("🔄 Iniciando procesamiento...")
+            self.show_status("🔄 Iniciando procesamiento...") 
             
             # Cargar Reporte 1
             self.show_status("📊 Cargando Reporte 1...")
@@ -686,7 +691,7 @@ class ModernSiigoApp:
                         "¿Deseas continuar sin filtro de usuario?")
                     if respuesta:
                         # Recargar sin filtro
-                        self.show_status("🔄 Recargando sin filtro...")
+                        self.show_status("🔄 Recargando sin filtro...") 
                         r2 = FileManager.cargar_hoja_con_columnas(self.archivo2, columnas_r2)
                         self.lbl_filtro_info.configure(text="ℹ️ Procesando sin filtro de usuario", 
                                                      text_color="blue")
@@ -699,7 +704,7 @@ class ModernSiigoApp:
             logging.info("Reporte 2 procesado con %d registros.", len(r2))
 
             # Combinar reportes
-            self.show_status("🔗 Combinando reportes...")
+            self.show_status("🔗 Combinando reportes...") 
             df = DataProcessor.combinar_reportes(r1, r2)
             logging.info("Registros después del merge: %d", len(df))
 
@@ -710,7 +715,7 @@ class ModernSiigoApp:
                               len(registros_sin_coincidencia))
 
             # Limpiar datos
-            self.show_status("🧹 Limpiando datos...")
+            self.show_status("🧹 Limpiando datos...") 
             df = DataProcessor.limpiar_datos(df)
 
             if len(df) == 0:
@@ -723,11 +728,11 @@ class ModernSiigoApp:
                 raise ValueError(mensaje_error)
 
             # Preparar estructura final
-            self.show_status("📝 Preparando estructura final...")
+            self.show_status("📝 Preparando estructura final...") 
             df = DataProcessor.preparar_estructura_final(df, self.var_fecha_vencimiento.get())
 
             # Generar archivo
-            self.show_status("💾 Generando archivo Excel...")
+            self.show_status("💾 Generando archivo Excel...") 
             archivo_salida = ExcelExporter.generar_archivo(df, self.plantilla)
             
             # Ocultar estado y mostrar resultado
