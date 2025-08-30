@@ -256,6 +256,7 @@ class ModernSiigoApp:
         self.setup_variables()
         self.setup_window()
         self.create_widgets()
+        self.center_window()  # Mover aquí después de crear widgets
         
     def setup_logging(self):
         """Configurar logging"""
@@ -280,7 +281,7 @@ class ModernSiigoApp:
         
         # Colores del tema
         self.colors = {
-            'primary': '#2E86C1',
+            'primary': '#1B7B3A',
             'secondary': '#1B7B3A',
             'success': '#1B7B3A',
             'danger': '#EC7063',
@@ -299,9 +300,7 @@ class ModernSiigoApp:
         self.root = ctk.CTk()
         self.root.title("🚀 Herramienta de Importación SIIGO - v2")
         self.root.geometry("800x600")
-        
-        # Centrar ventana
-        self.center_window()
+        self.root.minsize(550, 550)  # Tamaño mínimo
         
         # Intentar cargar ícono
         try:
@@ -310,12 +309,23 @@ class ModernSiigoApp:
             pass
 
     def center_window(self):
-        """Centrar la ventana en la pantalla"""
-        self.root.update_idletasks()
-        width = self.root.winfo_width()
-        height = self.root.winfo_height()
+        """Centrar la ventana en la pantalla después de crear los widgets"""
+        self.root.update_idletasks()  # Forzar actualización del tamaño
+        
+        # Obtener el tamaño real de la ventana
+        width = self.root.winfo_reqwidth()
+        height = self.root.winfo_reqheight()
+        
+        # Si el tamaño es muy pequeño, usar el tamaño mínimo
+        if width < 550:
+            width = 550
+        if height < 550:
+            height = 550
+            
+        # Centrar en pantalla
         pos_x = (self.root.winfo_screenwidth() // 2) - (width // 2)
         pos_y = (self.root.winfo_screenheight() // 2) - (height // 2)
+        
         self.root.geometry(f'{width}x{height}+{pos_x}+{pos_y}')
 
     def create_widgets(self):
